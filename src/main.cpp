@@ -31,6 +31,26 @@
 
 #include <math.h>
 
+#include <iostream>
+#include <cstdlib>
+#include <string>
+
+// Function to switch workspace in i3 window manager
+void switchWorkspace(const std::string& workspace) {
+    // Build the command string
+    std::string command = "i3-msg -q workspace " + workspace;
+
+    // Execute the command using system() function
+    int result = std::system(command.c_str());
+
+    // Check the result of the command execution
+    if (result != 0) {
+        std::cerr << "Failed to switch workspace." << std::endl;
+    }
+}
+
+int zone = 0;
+
 void test3(uint64_t timestamp,
 		   device3_event_type event,
 		   const device3_ahrs_type* ahrs) {
@@ -43,32 +63,27 @@ void test3(uint64_t timestamp,
 	
 	device3_quat_type q = device3_get_orientation(ahrs);
 	
-	const float dx = (old.x - q.x) * (old.x - q.x);
-	const float dy = (old.y - q.y) * (old.y - q.y);
-	const float dz = (old.z - q.z) * (old.z - q.z);
-	const float dw = (old.w - q.w) * (old.w - q.w);
-	
-	const float d = sqrtf(dx*dx + dy*dy + dz*dz + dw*dw);
-	
-	if (dmax < 0.0f) {
-		dmax = 0.0f;
-	} else {
-		dmax = (d > dmax? d : dmax);
-	}
-	
 	device3_euler_type e = device3_get_euler(q);
 	
-	if (d >= 0.00005f) {
-		device3_euler_type e0 = device3_get_euler(old);
-		
-		printf("Roll: %f; Pitch: %f; Yaw: %f\n", e0.roll, e0.pitch, e0.yaw);
-		printf("Roll: %f; Pitch: %f; Yaw: %f\n", e.roll, e.pitch, e.yaw);
-		printf("D = %f; ( %f )\n", d, dmax);
-		
-		printf("X: %f; Y: %f; Z: %f; W: %f;\n", old.x, old.y, old.z, old.w);
-		printf("X: %f; Y: %f; Z: %f; W: %f;\n", q.x, q.y, q.z, q.w);
-	} else {
-		printf("Roll: %.2f; Pitch: %.2f; Yaw: %.2f\n", e.roll, e.pitch, e.yaw);
+	float d = fabs(e.yaw - device3_get_euler(old).yaw);
+
+	if (e.yaw < -15 && zone != -1) {
+		std::cout << "Switching to workspace 1" << std::endl;
+		switchWorkspace("1:web");
+		zone = -1;
+	}
+	else if (e.yaw > 15 && zone != 1) {
+		std::cout << "Switching to workspace 3" << std::endl;
+		switchWorkspace("3:code");
+		zone = 1;
+	}
+	else if (e.pitch > 15 && zone != 2) {
+		std::cout << "Switching to workspace 2" << std::endl;
+		switchWorkspace("2:term");
+		zone = 2;
+	}
+	else if (e.yaw > -15 && e.yaw < 15 && e.pitch < 15) {
+		zone = 0;
 	}
 	
 	old = q;
